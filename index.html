@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transmute</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
+  :root {
+    --bg: #f5f5f7;
+    --sidebar-bg: rgba(240,240,245,0.8);
+    --surface: #ffffff;
+    --surface2: #f2f2f7;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.06);
+    --text: #1c1c1e;
+    --text2: #636366;
+    --text3: #aeaeb2;
+    --accent: #0071E3;
+    --accent-hover: #0077ED;
+    --green: #34C759;
+    --amber: #FF9F0A;
+    --red: #FF3B30;
+    --purple: #AF52DE;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --sidebar-bg: rgba(30,30,32,0.9);
+      --surface: #2c2c2e;
+      --surface2: #3a3a3c;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.06);
+      --text: #ffffff;
+      --text2: #aeaeb2;
+      --text3: #636366;
+    }
+  }
+
+  html, body { height: 100%; overflow: hidden; background: transparent; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; color: var(--text); }
+  .app { display: flex; height: 100vh; background: var(--bg); }
+
+  /* Sidebar */
+  .sidebar { width: 200px; background: var(--sidebar-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; padding-top: 16px; flex-shrink: 0; }
+  .sidebar-section { padding: 8px 0 4px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 1px 6px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--text2); transition: background 0.1s, color 0.1s; user-select: none; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7; }
+  .nav-item:hover { background: var(--surface2); }
+  .nav-item.active { background: var(--accent); color: #fff; }
+  .nav-item.active svg { opacity: 1; }
+  .nav-badge { margin-left: auto; background: var(--surface2); color: var(--text2); font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; min-width: 18px; text-align: center; }
+  .nav-item.active .nav-badge { background: rgba(255,255,255,0.25); color: #fff; }
+  .sidebar-stats { margin-top: auto; padding: 16px; border-top: 0.5px solid var(--border2); }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text2); padding: 3px 0; }
+  .stat-val { font-weight: 600; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .titlebar { height: 44px; display: flex; align-items: center; padding: 0 16px; gap: 8px; -webkit-app-region: drag; flex-shrink: 0; border-bottom: 0.5px solid var(--border2); }
+  .titlebar-title { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+  .titlebar-btn { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 5px; padding: 5px 12px; border: 0.5px solid var(--border); border-radius: 7px; background: var(--surface); font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; transition: background 0.1s; }
+  .titlebar-btn:hover { background: var(--surface2); }
+  .titlebar-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .titlebar-btn.primary:hover { background: var(--accent-hover); }
+  .titlebar-btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+  .titlebar-btn svg { width: 13px; height: 13px; }
+
+  /* Drop zone */
+  .drop-zone { margin: 16px; border: 1.5px dashed var(--border); border-radius: 12px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--surface2); flex-shrink: 0; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(0,113,227,0.06); }
+  .drop-zone svg { width: 36px; height: 36px; color: var(--text3); margin: 0 auto 8px; display: block; }
+  .drop-zone h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .drop-zone p { font-size: 12px; color: var(--text2); }
+  .drop-zone a { color: var(--accent); cursor: pointer; }
+  .drop-zone a:hover { text-decoration: underline; }
+  .formats-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+  /* Controls row — batch format + output folder */
+  .controls-row { display: flex; align-items: center; gap: 8px; padding: 0 16px 12px; flex-shrink: 0; flex-wrap: wrap; }
+  .controls-row label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  select { font-size: 12px; padding: 5px 8px; border: 0.5px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 26px; }
+  select:focus { border-color: var(--accent); }
+
+  .divider { width: 0.5px; height: 16px; background: var(--border); }
+
+  /* Output folder pill */
+  .output-folder-pill { display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 8px; border: 0.5px solid var(--border); border-radius: 7px; background: var(--surface); font-size: 12px; color: var(--text2); cursor: pointer; transition: background 0.1s; max-width: 200px; }
+  .output-folder-pill:hover { background: var(--surface2); }
+  .output-folder-pill svg { width: 13px; height: 13px; color: var(--accent); flex-shrink: 0; }
+  .output-folder-pill .folder-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .output-folder-pill .clear-folder { margin-left: 3px; opacity: 0.5; font-size: 13px; line-height: 1; flex-shrink: 0; }
+  .output-folder-pill .clear-folder:hover { opacity: 1; }
+
+  /* Queue */
+  .queue-header { display: flex; align-items: center; padding: 0 16px 8px; flex-shrink: 0; }
+  .queue-header-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; flex: 1; }
+  .queue-clear-btn { font-size: 12px; color: var(--accent); background: none; border: none; cursor: pointer; }
+  .queue { flex: 1; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 5px; }
+  .queue::-webkit-scrollbar { width: 4px; }
+  .queue::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text3); padding-bottom: 40px; }
+  .empty-state svg { width: 40px; height: 40px; opacity: 0.4; }
+  .empty-state p { font-size: 13px; }
+
+  /* Queue items */
+  .q-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--surface); border: 0.5px solid var(--border2); border-radius: 9px; transition: border-color 0.2s; }
+  .q-item.converting { border-color: rgba(255,159,10,0.4); }
+  .q-item.done { border-color: rgba(52,199,89,0.4); }
+  .q-item.error { border-color: rgba(255,59,48,0.4); }
+
+  .file-badge { width: 34px; height: 40px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; letter-spacing: -0.02em; flex-shrink: 0; position: relative; }
+  .file-badge::after { content: ''; position: absolute; top: 0; right: 0; width: 10px; height: 10px; background: var(--surface); border-left: 1.5px solid; border-bottom: 1.5px solid; border-color: inherit; border-radius: 0 4px 0 5px; }
+
+  .q-info { flex: 1; min-width: 0; }
+  .q-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-meta { font-size: 11px; color: var(--text3); margin-top: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .q-to { color: var(--accent); font-weight: 600; }
+  .q-progress-row { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+  .q-progress-bar { flex: 1; height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden; }
+  .q-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s ease; }
+  .q-progress-pct { font-size: 10px; color: var(--text3); font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 26px; text-align: right; }
+  .q-eta { font-size: 10px; color: var(--text3); flex-shrink: 0; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+  .q-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .status-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .status-pill.pending { background: var(--surface2); color: var(--text3); }
+  .status-pill.converting { background: rgba(255,159,10,0.15); color: var(--amber); }
+  .status-pill.done { background: rgba(52,199,89,0.15); color: var(--green); }
+  .status-pill.error { background: rgba(255,59,48,0.15); color: var(--red); }
+  .status-pill.skipped { background: var(--surface2); color: var(--text3); }
+
+  .icon-btn { width: 26px; height: 26px; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; background: none; color: var(--text3); }
+  .icon-btn:hover { background: var(--surface2); color: var(--text); }
+  .icon-btn.dl { background: rgba(52,199,89,0.15); color: var(--green); }
+  .icon-btn.dl:hover { background: rgba(52,199,89,0.3); }
+  .icon-btn.retry-btn { background: rgba(255,59,48,0.1); color: var(--red); }
+  .icon-btn.retry-btn:hover { background: rgba(255,59,48,0.22); }
+  .icon-btn svg { width: 13px; height: 13px; }
+
+  /* Per-file inline format select */
+  .q-fmt-select { font-size: 11px; padding: 3px 6px; padding-right: 20px; border: 0.5px solid var(--border); border-radius: 6px; background: var(--surface2); color: var(--text); cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; transition: border-color 0.1s; }
+  .q-fmt-select:focus { border-color: var(--accent); }
+  .q-fmt-select:disabled { opacity: 0.4; cursor: default; }
+
+  /* Convert single btn */
+  .icon-btn.convert-single { background: rgba(0,113,227,0.1); color: var(--accent); }
+  .icon-btn.convert-single:hover { background: rgba(0,113,227,0.2); }
+
+  /* FFmpeg warning banner */
+  .ffmpeg-warn { margin: 12px 16px 0; padding: 10px 14px; background: rgba(255,159,10,0.1); border: 0.5px solid rgba(255,159,10,0.3); border-radius: 9px; font-size: 12px; color: var(--amber); display: flex; align-items: center; gap: 8px; }
+  .ffmpeg-warn svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .ffmpeg-warn a { color: var(--accent); cursor: pointer; margin-left: 4px; }
+  .ffmpeg-warn.hidden { display: none; }
+
+  /* Settings modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--surface); border: 0.5px solid var(--border); border-radius: 14px; padding: 24px; width: 340px; box-shadow: 0 8px 40px rgba(0,0,0,0.25); }
+  .modal-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .modal-close { width: 22px; height: 22px; border-radius: 50%; border: none; background: var(--surface2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); }
+  .modal-close:hover { background: var(--border); }
+  .modal-close svg { width: 10px; height: 10px; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--border2); }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-label { font-size: 13px; color: var(--text); }
+  .settings-sublabel { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: background 0.2s; }
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle-track::after { content: ''; position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+  .settings-folder-pill { display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 8px; border: 0.5px solid var(--border); border-radius: 7px; background: var(--surface2); font-size: 12px; color: var(--text2); cursor: pointer; transition: background 0.1s; max-width: 160px; }
+  .settings-folder-pill:hover { background: var(--border); }
+  .settings-folder-pill svg { width: 12px; height: 12px; color: var(--accent); flex-shrink: 0; }
+  .settings-folder-pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Toast */
+  .toast { position: fixed; top: 16px; right: 16px; z-index: 9999; background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; max-width: 280px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); animation: toast-in 0.2s ease; }
+  .toast.hiding { animation: toast-out 0.2s ease forwards; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
+  .toast-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--amber); margin-top: 1px; }
+  .toast-body { flex: 1; }
+  .toast-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .toast-msg { font-size: 11px; color: var(--text2); line-height: 1.4; }
+  .toast-close { width: 16px; height: 16px; flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--text3); padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+  .toast-close:hover { background: var(--surface2); color: var(--text); }
+  .toast-close svg { width: 10px; height: 10px; }
+  .toast-reveal { font-size: 11px; color: var(--accent); cursor: pointer; margin-top: 4px; }
+  .toast-reveal:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="nav-item active" data-cat="all" onclick="setCategory('all',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        All files <span class="nav-badge" id="badge-all">0</span>
+      </div>
+      <div class="nav-item" data-cat="video" onclick="setCategory('video',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Video <span class="nav-badge" id="badge-video">0</span>
+      </div>
+      <div class="nav-item" data-cat="audio" onclick="setCategory('audio',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Audio <span class="nav-badge" id="badge-audio">0</span>
+      </div>
+      <div class="nav-item" data-cat="image" onclick="setCategory('image',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Images <span class="nav-badge" id="badge-image">0</span>
+      </div>
+      <div class="nav-item" data-cat="document" onclick="setCategory('document',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Documents <span class="nav-badge" id="badge-document">0</span>
+      </div>
+    </div>
+
+    <div class="sidebar-stats">
+      <div class="stat-row"><span>Converted</span><span class="stat-val green" id="stat-done">0</span></div>
+      <div class="stat-row"><span>Queued</span><span class="stat-val" id="stat-pending">0</span></div>
+      <div class="stat-row"><span>Errors</span><span class="stat-val red" id="stat-errors">0</span></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="titlebar">
+      <span class="titlebar-title">Transmute</span>
+      <button class="titlebar-btn" onclick="clearAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        Clear
+      </button>
+      <button class="titlebar-btn" onclick="openSettings()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button class="titlebar-btn" id="cancelBtn" onclick="cancelAll()" style="display:none;color:var(--red);border-color:rgba(255,59,48,0.3)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        Cancel
+      </button>
+      <button class="titlebar-btn primary" id="convertBtn" onclick="convertAll()" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Convert all
+      </button>
+    </div>
+
+    <div class="ffmpeg-warn hidden" id="ffmpegWarn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      ffmpeg not found. Install it to convert files.
+    </div>
+
+    <div class="drop-zone" id="dropZone" onclick="browseFiles()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      <h3>Drop files here</h3>
+      <p>or <a>browse your computer</a></p>
+      <div class="formats-hint">Video · Audio · Images · Documents &nbsp;·&nbsp; MP4, MOV, MP3, WAV, PNG, JPG, PDF, DOCX + more</div>
+    </div>
+
+    <!-- Controls: batch format + output folder -->
+    <div class="controls-row">
+      <label>Batch convert to:</label>
+      <select id="targetFormat" onchange="onBatchFormatChange()">
+        <option value="auto">Auto (smart default)</option>
+        <optgroup label="Video">
+          <option value="mp4">MP4 (H.264)</option>
+          <option value="mov">MOV (QuickTime)</option>
+          <option value="webm">WebM (VP9)</option>
+          <option value="avi">AVI</option>
+          <option value="mkv">MKV (copy streams)</option>
+          <option value="gif">Animated GIF</option>
+        </optgroup>
+        <optgroup label="Audio">
+          <option value="mp3">MP3</option>
+          <option value="aac">AAC</option>
+          <option value="wav">WAV (lossless)</option>
+          <option value="flac">FLAC (lossless)</option>
+          <option value="ogg">OGG Vorbis</option>
+          <option value="m4a">M4A</option>
+        </optgroup>
+        <optgroup label="Image">
+          <option value="png">PNG</option>
+          <option value="jpg">JPEG</option>
+          <option value="webp">WebP</option>
+          <option value="bmp">BMP</option>
+          <option value="tiff">TIFF</option>
+          <option value="heic">HEIC</option>
+          <option value="avif">AVIF</option>
+        </optgroup>
+        <optgroup label="Document">
+          <option value="txt">Plain Text</option>
+          <option value="md">Markdown</option>
+          <option value="rtf">Rich Text</option>
+          <option value="html">HTML</option>
+          <option value="csv">CSV</option>
+          <option value="json">JSON</option>
+          <option value="xml">XML</option>
+        </optgroup>
+      </select>
+
+      <div class="divider"></div>
+
+      <!-- Output folder picker -->
+      <div class="output-folder-pill" id="outputFolderPill" onclick="pickOutputFolder()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        <span class="folder-label" id="outputFolderLabel">Save to: source folder</span>
+        <span class="clear-folder" id="clearFolderBtn" style="display:none" onclick="clearOutputFolder(event)">✕</span>
+      </div>
+    </div>
+
+    <div class="queue-header">
+      <span class="queue-header-label">Queue</span>
+      <button class="queue-clear-btn" onclick="clearAll()">Clear all</button>
+    </div>
+
+    <div class="queue" id="queue">
+      <div class="empty-state" id="emptyState">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <p>Drop files above to get started</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay hidden" id="settingsOverlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-title">
+      Settings
+      <button class="modal-close" onclick="closeSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Keep queue on relaunch</div>
+        <div class="settings-sublabel">Restore files when you reopen the app</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="settingKeepQueue" onchange="saveSettings()">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">Default output folder</div>
+        <div class="settings-sublabel">Where converted files are saved by default</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px">
+        <div class="settings-folder-pill" id="settingsFolderPill" onclick="pickSettingsFolder()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          <span id="settingsFolderLabel">Source folder</span>
+        </div>
+        <button id="clearDefaultFolderBtn" onclick="clearDefaultFolder()" title="Reset to source folder" style="display:none;width:18px;height:18px;border-radius:50%;border:none;background:var(--surface2);cursor:pointer;display:none;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:9px;height:9px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script>
+const FORMAT_OPTIONS = [
+  { group: 'Video',  formats: ['mp4','mov','webm','avi','mkv','gif'] },
+  { group: 'Audio',  formats: ['mp3','aac','wav','flac','ogg','m4a'] },
+  { group: 'Image',  formats: ['png','jpg','webp','bmp','tiff','heic','avif'] },
+  { group: 'Document', formats: ['txt','md','rtf','html','csv','json','xml'] },
+];
+const FORMAT_LABELS = { mp4:'MP4',mov:'MOV',webm:'WebM',avi:'AVI',mkv:'MKV',gif:'GIF',mp3:'MP3',aac:'AAC',wav:'WAV',flac:'FLAC',ogg:'OGG',m4a:'M4A',png:'PNG',jpg:'JPG',webp:'WebP',bmp:'BMP',tiff:'TIFF',heic:'HEIC',avif:'AVIF',txt:'TXT',md:'MD',rtf:'RTF',html:'HTML',csv:'CSV',json:'JSON',xml:'XML' };
+
+const CATS = {
+  video: ['mp4','mov','avi','mkv','webm','gif','m4v','flv','wmv','3gp','ts','m2ts'],
+  audio: ['mp3','aac','wav','flac','ogg','m4a','wma','opus','aiff','wv','dts'],
+  image: ['png','jpg','jpeg','webp','bmp','tiff','tif','heic','heif','gif','avif','ico','svg'],
+  document: ['pdf','docx','txt','rtf','md','html','csv','json','xml'],
+};
+const AUTO_DEFAULTS = { video:'mp4', audio:'mp3', image:'png', document:'txt' };
+const BADGE_COLORS = {
+  mp4:['#0071E322','#0071E3'], mov:['#5856D622','#5856D6'], webm:['#34C75922','#34C759'], avi:['#FF9F0A22','#FF9F0A'],
+  mkv:['#AF52DE22','#AF52DE'], gif:['#FF375F22','#FF375F'], mp3:['#FF9F0A22','#FF9F0A'], aac:['#0071E322','#0071E3'],
+  wav:['#34C75922','#34C759'], flac:['#5856D622','#5856D6'], ogg:['#AF52DE22','#AF52DE'], m4a:['#FF9F0A22','#FF9F0A'],
+  png:['#0071E322','#0071E3'], jpg:['#FF9F0A22','#FF9F0A'], jpeg:['#FF9F0A22','#FF9F0A'], webp:['#34C75922','#34C759'],
+  bmp:['#AF52DE22','#AF52DE'], tiff:['#5856D622','#5856D6'], heic:['#FF375F22','#FF375F'], avif:['#FF375F22','#FF375F'],
+  pdf:['#FF3B3022','#FF3B30'], docx:['#0071E322','#0071E3'], txt:['#8E8E9322','#8E8E93'], rtf:['#8E8E9322','#8E8E93'], md:['#8E8E9322','#8E8E93'], html:['#8E8E9322','#8E8E93'], csv:['#8E8E9322','#8E8E93'], json:['#8E8E9322','#8E8E93'], xml:['#8E8E9322','#8E8E93'],
+  ico:['#AF52DE22','#AF52DE'], svg:['#FF9F0A22','#FF9F0A'], 3gp:['#0071E322','#0071E3'], ts:['#5856D622','#5856D6'], m2ts:['#AF52DE22','#AF52DE'], wma:['#FF9F0A22','#FF9F0A'], opus:['#34C75922','#34C759'], aiff:['#5856D622','#5856D6'],
+};
+
+let files = [], idCounter = 0, currentCat = 'all', converting = false, outputDir = null;
+
+function formatETA(ms) {
+  if (!isFinite(ms) || ms <= 0) return '--';
+
+  const s = Math.ceil(ms / 1000);
+
+  if (s < 60) return `${s}s left`;
+
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+
+  return `${m}m ${r}s left`;
+}
+
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function onBatchFormatChange() {
+  // Update the target format label on each pending item without re-rendering
+  files.forEach(f => {
+    if(f.individualFmt) return; // has its own format set, skip
+    const meta = document.querySelector(`#item-${f.id} .q-to`);
+    if(meta) meta.textContent = '.' + getTargetExt(f);
+  });
+}
+
+function getExt(name) { const parts = name.split('.'); return parts.length > 1 ? parts.pop().toLowerCase() : ''; }
+function getCat(ext) { for (const [k,v] of Object.entries(CATS)) if(v.includes(ext)) return k; return 'other'; }
+
+function getTargetExt(f) {
+  if (f.individualFmt) return f.individualFmt;
+  const sel = document.getElementById('targetFormat').value;
+  if (sel !== 'auto') return sel;
+  return AUTO_DEFAULTS[f.cat] || 'mp4';
+}
+
+function buildFmtSelect(fileId, currentExt, disabled) {
+  const dis = disabled ? 'disabled' : '';
+  let opts = `<option value="auto">Auto</option>`;
+  for (const {group, formats} of FORMAT_OPTIONS) {
+    opts += `<optgroup label="${group}">`;
+    for (const fmt of formats) {
+      const sel = (currentExt === fmt) ? 'selected' : '';
+      opts += `<option value="${fmt}" ${sel}>${FORMAT_LABELS[fmt]||fmt}</option>`;
+    }
+    opts += `</optgroup>`;
+  }
+  return `<select class="q-fmt-select" id="fmt-${fileId}" onchange="setIndividualFmt(${fileId},this.value)" ${dis}>${opts}</select>`;
+}
+
+function setCategory(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  // Show/hide items by category without destroying live DOM
+  files.forEach(f => {
+    const item = document.getElementById('item-'+f.id);
+    if(!item) return;
+    const visible = cat === 'all' || f.cat === cat;
+    item.style.display = visible ? '' : 'none';
+  });
+  // Show empty state if nothing visible
+  const q = document.getElementById('queue');
+  const anyVisible = files.some(f => cat === 'all' || f.cat === cat);
+  if(!anyVisible && files.length > 0) {
+    if(!q.querySelector('.empty-state')) {
+      const div = document.createElement('div');
+      div.innerHTML = '<div class="empty-state" id="emptyState"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><p>No files in this category</p></div>';
+      q.appendChild(div.firstElementChild);
+    }
+  } else {
+    const empty = q.querySelector('.empty-state');
+    if(empty) empty.remove();
+  }
+}
+
+function browseFiles() {
+  window.api.openFileDialog().then(paths => { if(paths.length) addPaths(paths); });
+}
+
+async function pickOutputFolder() {
+  const chosen = await window.api.openFolderDialog();
+  if (chosen) {
+    outputDir = chosen;
+    const name = chosen.split(/[\\/]/).pop() || chosen;
+    document.getElementById('outputFolderLabel').textContent = 'Save to: ' + name;
+    document.getElementById('clearFolderBtn').style.display = 'inline';
+  }
+}
+
+function clearOutputFolder(e) {
+  e.stopPropagation();
+  outputDir = null;
+  document.getElementById('outputFolderLabel').textContent = 'Save to: source folder';
+  document.getElementById('clearFolderBtn').style.display = 'none';
+}
+
+async function pickFileOutputDir(id) {
+  const f = files.find(f => f.id === id);
+  if (!f) return;
+  const chosen = await window.api.openFolderDialog();
+  if (chosen) {
+    f.fileOutputDir = chosen;
+  } else if (chosen === null && f.fileOutputDir) {
+    // allow clearing by picking nothing? No — only set if chosen
+  }
+  // Re-render just the folder button title/color for this item
+  const btn = document.querySelector(`#item-${id} .q-actions .icon-btn[onclick="pickFileOutputDir(${id})"]`);
+  if (btn && f.fileOutputDir) {
+    const label = f.fileOutputDir.split(/[\\/]/).pop() || f.fileOutputDir;
+    btn.title = 'Save to: ' + label;
+    btn.style.color = 'var(--accent)';
+  }
+  persistQueue();
+}
+
+async function pickCoverImage(id) {
+  const f = files.find(f => f.id === id);
+  if (!f) return;
+  const chosen = await window.api.openImageDialog();
+  if (chosen) {
+    f.coverImage = chosen;
+    renderQueue();
+    persistQueue();
+  }
+}
+
+function addPaths(paths) {
+  for(const p of paths) {
+    // Deduplicate — don't add if already in the queue in any state
+    if(files.find(f => f.path === p)) continue;
+    const name = p.split(/[\\/]/).pop();
+    const ext = getExt(name);
+    const cat = getCat(ext);
+    files.push({ id: idCounter++, path: p, name, ext, cat, status: 'pending', progress: 0, outPath: null, individualFmt: null, fileOutputDir: null, coverImage: null });
+  }
+  renderQueue(); updateBadges(); updateStats();
+  updateConvertBtn();
+  persistQueue();
+}
+
+function setIndividualFmt(id, val) {
+  const f = files.find(f=>f.id===id);
+  if (!f) return;
+  f.individualFmt = (val === 'auto') ? null : val;
+  // update the meta display
+  const meta = document.querySelector(`#item-${id} .q-to`);
+  if (meta) meta.textContent = '.' + getTargetExt(f);
+}
+
+function renderQueue() {
+  const q = document.getElementById('queue');
+  const shown = currentCat === 'all' ? files : files.filter(f => f.cat === currentCat);
+
+  if(!shown.length) {
+    q.innerHTML = '<div class="empty-state" id="emptyState"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><p>Drop files above to get started</p></div>';
+    return;
+  }
+
+  // Remove empty state if present
+  const empty = q.querySelector('.empty-state');
+  if(empty) empty.remove();
+
+  // Remove items no longer in shown list
+  q.querySelectorAll('.q-item').forEach(el => {
+    const id = parseInt(el.id.replace('item-',''));
+    if(!shown.find(f => f.id === id)) el.remove();
+  });
+
+  // Insert new items at the top — never touch existing ones (they have live progress DOM)
+  // Iterate forwards but always insert before the current firstItem so newest ends up on top
+  const newFiles = shown.filter(f => !document.getElementById('item-'+f.id));
+  for(let i = newFiles.length - 1; i >= 0; i--) {
+    const f = newFiles[i];
+    const div = document.createElement('div');
+    div.innerHTML = renderItem(f);
+    const firstItem = q.querySelector('.q-item');
+    q.insertBefore(div.firstElementChild, firstItem || null);
+  }
+}
+
+function renderItem(f) {
+  const bc = BADGE_COLORS[f.ext] || ['#8E8E9322','#8E8E93'];
+  const target = getTargetExt(f);
+  const isActive = f.status === 'pending';
+  const prog = f.status === 'converting' ? `<div class="q-progress-row"><div class="q-progress-bar"><div class="q-progress-fill" id="prog-${f.id}" style="width:${f.progress}%"></div></div><span class="q-progress-pct" id="pct-${f.id}">${f.progress}%</span><span class="q-eta" id="eta-${f.id}"></span></div>` : '';
+  const dlBtn = f.outPath ? `<button class="icon-btn dl" onclick="showInFinder(${f.id})" title="Show in folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>` : '';
+  const convertBtn = isActive ? `<button class="icon-btn convert-single" onclick="convertSingle(${f.id})" title="Convert this file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button>` : '';
+  const fmtSel = buildFmtSelect(f.id, f.individualFmt, !isActive);
+
+  const folderLabel = f.fileOutputDir ? (f.fileOutputDir.split(/[\\/]/).pop() || f.fileOutputDir) : null;
+  const folderBtn = isActive ? `<button class="icon-btn folder-pick-btn" onclick="pickFileOutputDir(${f.id})" title="${folderLabel ? 'Save to: ' + folderLabel : 'Save to: source folder (click to change)'}" style="color:${folderLabel ? 'var(--accent)' : 'var(--text3)'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>` : '';
+  const coverLabel = f.coverImage ? (f.coverImage.split(/[\\/]/).pop() || 'Cover') : null;
+  const coverBtn = isActive && f.cat === 'audio' ? `<button class="icon-btn" onclick="pickCoverImage(${f.id})" title="${coverLabel ? 'Cover: ' + coverLabel : 'Add cover image'}" style="color:${coverLabel ? 'var(--purple)' : 'var(--text3)'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>` : '';
+
+  return `<div class="q-item ${f.status}" id="item-${f.id}">
+    <div class="file-badge" style="background:${bc[0]};color:${bc[1]};border-color:${bc[1]}">${f.ext.toUpperCase().slice(0,4)}</div>
+    <div class="q-info">
+      <div class="q-name">${escapeHtml(f.name)}</div>
+      <div class="q-meta">
+        <span>${f.cat}</span> <span>→</span> <span class="q-to">.${target}</span>
+        ${isActive ? `&nbsp;${fmtSel}` : ''}
+        ${f.status === 'error' && f.errorMsg ? `<span style="font-size:10px;color:var(--red);display:block;margin-top:2px;word-break:break-all">${escapeHtml(f.errorMsg.slice(0,120))}</span>` : ''}
+      </div>
+      ${prog}
+    </div>
+    <div class="q-actions">
+      <span class="status-pill ${f.status}" id="pill-${f.id}">${f.status}</span>
+      ${dlBtn}
+      ${folderBtn}
+      ${coverBtn}
+      ${convertBtn}
+      <button class="icon-btn" onclick="removeFile(${f.id})" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+  </div>`;
+}
+
+function updateBadges() {
+  const counts = { all: files.length, video: 0, audio: 0, image: 0 };
+  for(const f of files) if(counts[f.cat] !== undefined) counts[f.cat]++;
+  for(const [k,v] of Object.entries(counts)) { const el = document.getElementById('badge-'+k); if(el) el.textContent = v; }
+}
+
+function updateStats() {
+  document.getElementById('stat-done').textContent = files.filter(f=>f.status==='done').length;
+  document.getElementById('stat-pending').textContent = files.filter(f=>f.status==='pending').length;
+  document.getElementById('stat-errors').textContent = files.filter(f=>f.status==='error').length;
+}
+
+function removeFile(id) {
+  const f = files.find(f => f.id === id);
+  if(!f) return;
+  // If converting, kill the ffmpeg process and immediately free the converting flag
+  if(f.status === 'converting') {
+    f.status = 'cancelled';
+    window.api.cancelConversion(f.path);
+    converting = false;
+    updateConvertBtn();
+  }
+  files = files.filter(f => f.id !== id);
+  const el = document.getElementById('item-'+id);
+  if(el) el.remove();
+  // Show empty state if queue is now empty
+  const q = document.getElementById('queue');
+  const shown = currentCat === 'all' ? files : files.filter(f => f.cat === currentCat);
+  if(!shown.length && !q.querySelector('.empty-state')) {
+    q.innerHTML = '<div class="empty-state" id="emptyState"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><p>Drop files above to get started</p></div>';
+  }
+  updateBadges(); updateStats();
+  updateConvertBtn();
+  persistQueue();
+}
+
+function clearAll() {
+  if(converting) return;
+  files = []; renderQueue(); updateBadges(); updateStats();
+  updateConvertBtn();
+  persistQueue();
+}
+
+function showInFinder(id) {
+  const f = files.find(f=>f.id===id);
+  if(f && f.outPath) window.api.showInFinder(f.outPath);
+}
+
+async function runConversion(f) {
+  try {
+    const target = getTargetExt(f);
+    f.outExt = target;
+    f._startTime = Date.now();
+    updateItemStatus(f.id, 'converting');
+    const result = await window.api.convertFile({ filePath: f.path, targetFormat: target, outputDir: f.fileOutputDir || outputDir || null, coverImage: f.coverImage || undefined });
+    // File was cancelled/removed while ffmpeg was running — bail out silently
+    if(f.status === 'cancelled' || !files.find(ff => ff.id === f.id)) return;
+    if(result && result.success) {
+      f.outPath = result.outputPath;
+      f.progress = 100;
+      updateItemStatus(f.id, 'done');
+    } else {
+      f.errorMsg = result ? result.error : 'No result';
+      updateItemStatus(f.id, 'error');
+      console.error(f.errorMsg);
+    }
+  } catch(err) {
+    console.error('runConversion error:', err);
+    if(files.find(ff => ff.id === f.id)) updateItemStatus(f.id, 'error');
+  }
+  updateStats();
+  persistQueue();
+}
+
+async function convertSingle(id) {
+  const f = files.find(f=>f.id===id);
+  if(!f || f.status !== 'pending') return;
+  if(converting) {
+    showToast('Conversion in progress', 'Please wait — a conversion is already running. Your file will be converted when it finishes.');
+    return;
+  }
+  converting = true;
+  updateConvertBtn();
+  try {
+    await runConversion(f);
+  } finally {
+    converting = false;
+    updateConvertBtn();
+    updateStats();
+    // Toast on finish
+    if(f.status === 'done') showToast('Done', `${f.name} converted successfully`, 'success', f.outPath);
+    else if(f.status === 'error') showToast('Conversion failed', `${f.name} could not be converted`);
+  }
+}
+
+async function convertAll() {
+  if(converting) {
+    showToast('Conversion in progress', 'Please wait — a conversion is already running. All queued files will be converted automatically.');
+    return;
+  }
+  if(!files.filter(f=>f.status==='pending').length) return;
+  converting = true;
+  updateConvertBtn();
+  try {
+    while(true) {
+      const next = files.find(f => f.status === 'pending');
+      if(!next) break;
+      await runConversion(next);
+    }
+  } finally {
+    converting = false;
+    updateConvertBtn();
+    updateStats();
+    // Notify when batch finishes
+    const done = files.filter(f => f.status === 'done').length;
+    const errors = files.filter(f => f.status === 'error').length;
+    if(done > 0 || errors > 0) {
+      const body = errors > 0
+        ? `${done} file${done !== 1 ? 's' : ''} converted, ${errors} failed`
+        : `${done} file${done !== 1 ? 's' : ''} converted successfully`;
+      showToast('Done', body, errors > 0 ? null : 'success');
+    }
+  }
+}
+
+function updateConvertBtn() {
+  const hasPending = files.filter(f=>f.status==='pending').length > 0;
+  document.getElementById('convertBtn').disabled = converting || !hasPending;
+  const cancelBtn = document.getElementById('cancelBtn');
+  if(cancelBtn) cancelBtn.style.display = converting ? '' : 'none';
+}
+
+function cancelAll() {
+  if(!converting) return;
+  // Kill any active conversions
+  const converting_files = files.filter(f => f.status === 'converting');
+  for(const f of converting_files) {
+    f.status = 'cancelled';
+    window.api.cancelConversion(f.path);
+  }
+  converting = false;
+  updateConvertBtn();
+  updateStats();
+}
+
+function updateItemStatus(id, status) {
+  const f = files.find(f=>f.id===id);
+  if(!f) return;
+  f.status = status;
+  const el = document.getElementById('item-'+id);
+  if(!el) return;
+  el.className = 'q-item '+status;
+  const pill = document.getElementById('pill-'+id);
+  if(pill) { pill.className = 'status-pill '+status; pill.textContent = status; }
+  // inject progress row when converting starts
+  if(status === 'converting') {
+    const info = el.querySelector('.q-info');
+    if(info && !info.querySelector('.q-progress-row')) {
+      const row = document.createElement('div');
+      row.className = 'q-progress-row';
+      row.innerHTML = `<div class="q-progress-bar"><div class="q-progress-fill" id="prog-${id}" style="width:0%"></div></div><span class="q-progress-pct" id="pct-${id}">0%</span><span class="q-eta" id="eta-${id}"></span>`;
+      info.appendChild(row);
+    }
+  }
+  // remove progress row when done/error/cancelled
+  if(status === 'done' || status === 'error' || status === 'cancelled') {
+    const row = el.querySelector('.q-progress-row');
+    if(row) row.remove();
+  }  // add retry button on error
+  if(status === 'error') {
+    const actions = el.querySelector('.q-actions');
+    if(actions && !actions.querySelector('.retry-btn')) {
+      const btn = document.createElement('button');
+      btn.className = 'icon-btn retry-btn'; btn.title = 'Retry';
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>';
+      btn.onclick = () => retryFile(id);
+      actions.insertBefore(btn, actions.firstChild);
+    }
+  }
+  // hide per-file format select and convert btn once no longer pending
+  if(status !== 'pending') {
+    const fmtSel = document.getElementById('fmt-'+id);
+    if(fmtSel) fmtSel.disabled = true;
+    // remove individual convert button
+    el.querySelectorAll('.convert-single').forEach(b => b.remove());
+  }
+  if(status==='done' && f.outPath) {
+    const actions = el.querySelector('.q-actions');
+    if(!actions.querySelector('.dl')) {
+      const btn = document.createElement('button');
+      btn.className='icon-btn dl'; btn.title='Show in folder';
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      btn.onclick=()=>showInFinder(id);
+      actions.insertBefore(btn, actions.firstChild);
+    }
+  }
+}
+
+function retryFile(id) {
+  const f = files.find(f => f.id === id);
+  if(!f || converting) return;
+  // Reset to pending
+  f.status = 'pending';
+  f.progress = 0;
+  f.outPath = null;
+  const el = document.getElementById('item-'+id);
+  if(el) {
+    el.className = 'q-item pending';
+    const pill = document.getElementById('pill-'+id);
+    if(pill) { pill.className = 'status-pill pending'; pill.textContent = 'pending'; }
+    // Remove retry button
+    el.querySelectorAll('.retry-btn').forEach(b => b.remove());
+    // Re-enable format select
+    const fmtSel = document.getElementById('fmt-'+id);
+    if(fmtSel) fmtSel.disabled = false;
+    // Re-add individual convert button and folder picker
+    const actions = el.querySelector('.q-actions');
+    if(actions && !actions.querySelector('.convert-single')) {
+      const btn = document.createElement('button');
+      btn.className = 'icon-btn convert-single'; btn.title = 'Convert this file';
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+      btn.onclick = () => convertSingle(id);
+      actions.insertBefore(btn, actions.querySelector('.icon-btn:not(.retry-btn)') || null);
+    }
+    if(actions && !actions.querySelector('.folder-pick-btn')) {
+      const folderLabel = f.fileOutputDir ? (f.fileOutputDir.split(/[\\/]/).pop() || f.fileOutputDir) : null;
+      const fbtn = document.createElement('button');
+      fbtn.className = 'icon-btn folder-pick-btn';
+      fbtn.title = folderLabel ? 'Save to: ' + folderLabel : 'Save to: source folder (click to change)';
+      fbtn.style.color = folderLabel ? 'var(--accent)' : 'var(--text3)';
+      fbtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>';
+      fbtn.onclick = () => pickFileOutputDir(id);
+      actions.insertBefore(fbtn, actions.querySelector('.convert-single') || null);
+    }
+    if(actions && f.cat === 'audio' && !actions.querySelector('[onclick*="pickCoverImage"]')) {
+      const coverLabel = f.coverImage ? (f.coverImage.split(/[\\/]/).pop() || 'Cover') : null;
+      const cbtn = document.createElement('button');
+      cbtn.className = 'icon-btn';
+      cbtn.title = coverLabel ? 'Cover: ' + coverLabel : 'Add cover image';
+      cbtn.style.color = coverLabel ? 'var(--purple)' : 'var(--text3)';
+      cbtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      cbtn.onclick = () => pickCoverImage(id);
+      actions.insertBefore(cbtn, actions.querySelector('.convert-single') || null);
+    }
+  }
+  updateConvertBtn();
+  updateStats();
+}
+
+// Progress updates
+window.api.onProgress(({ filePath, progress }) => {
+  const f = files.find(f=>f.path===filePath);
+  if(!f) return;
+  f.progress = progress;
+  const fill = document.getElementById('prog-'+f.id);
+  if(fill) fill.style.width = progress+'%';
+  const pct = document.getElementById('pct-'+f.id);
+  if(pct) pct.textContent = progress+'%';
+  const eta = document.getElementById('eta-'+f.id);
+  if(eta) {
+    if(progress > 0 && progress < 100 && f._startTime) {
+      const elapsed = Date.now() - f._startTime;
+      const remaining = (elapsed / progress) * (100 - progress);
+      eta.textContent = '· ' + formatETA(remaining);
+    } else {
+      eta.textContent = '';
+    }
+  }
+});
+
+// Drag and drop
+const dz = document.getElementById('dropZone');
+document.body.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+document.body.addEventListener('dragleave', e => { if(!e.relatedTarget) dz.classList.remove('drag-over'); });
+document.body.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const paths = [...e.dataTransfer.files].map(f => window.api.getPathForFile(f)).filter(Boolean);
+  if(paths.length) addPaths(paths);
+});
+
+// ── Settings ──────────────────────────────────────────────────────────────
+let settings = { keepQueue: false, defaultOutputDir: null };
+
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.remove('hidden');
+}
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.add('hidden');
+}
+function overlayClick(e) {
+  if(e.target === document.getElementById('settingsOverlay')) closeSettings();
+}
+
+async function pickSettingsFolder() {
+  const chosen = await window.api.openFolderDialog();
+  if(chosen) {
+    settings.defaultOutputDir = chosen;
+    const name = chosen.split(/[\\/]/).pop() || chosen;
+    document.getElementById('settingsFolderLabel').textContent = name;
+    document.getElementById('clearDefaultFolderBtn').style.display = 'flex';
+    // Also apply to current session outputDir if nothing overridden per-session
+    if(!outputDir) {
+      outputDir = chosen;
+      updateOutputFolderPill();
+    }
+    saveSettings();
+  }
+}
+
+function clearDefaultFolder() {
+  settings.defaultOutputDir = null;
+  document.getElementById('settingsFolderLabel').textContent = 'Source folder';
+  document.getElementById('clearDefaultFolderBtn').style.display = 'none';
+  // If session outputDir was the default, clear it too
+  if(outputDir === settings.defaultOutputDir || !outputDir) {
+    outputDir = null;
+    updateOutputFolderPill();
+  }
+  saveSettings();
+}
+
+function updateOutputFolderPill() {
+  if(outputDir) {
+    const name = outputDir.split(/[\\/]/).pop() || outputDir;
+    document.getElementById('outputFolderLabel').textContent = 'Save to: ' + name;
+    document.getElementById('clearFolderBtn').style.display = 'inline';
+  } else {
+    document.getElementById('outputFolderLabel').textContent = 'Save to: source folder';
+    document.getElementById('clearFolderBtn').style.display = 'none';
+  }
+}
+
+async function saveSettings() {
+  settings.keepQueue = document.getElementById('settingKeepQueue').checked;
+  // Persist queue if enabled
+  const queueData = settings.keepQueue ? files.map(f => ({
+    path: f.path, name: f.name, ext: f.ext, cat: f.cat,
+    status: f.status === 'converting' ? 'pending' : f.status,
+    progress: f.status === 'done' ? 100 : 0,
+    outPath: f.outPath || null,
+    individualFmt: f.individualFmt || null,
+    fileOutputDir: f.fileOutputDir || null,
+    coverImage: f.coverImage || null,
+  })) : [];
+  await window.api.saveSettings({ ...settings, queue: queueData });
+}
+
+function persistQueue() {
+  if(settings.keepQueue) saveSettings();
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(title, msg, type, outPath) {
+  const existing = document.getElementById('busyToast');
+  if(existing) existing.remove();
+  if(toastTimer) clearTimeout(toastTimer);
+  const toast = document.createElement('div');
+  toast.className = 'toast'; toast.id = 'busyToast';
+  const icon = type === 'success'
+    ? `<svg class="toast-icon" style="color:var(--green)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>`
+    : `<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  const revealLink = (type === 'success' && outPath)
+    ? `<div class="toast-reveal" onclick="window.api.showInFinder('${outPath.replace(/'/g, "\\'")}');dismissToast()">Show in folder →</div>`
+    : '';
+  toast.innerHTML = `${icon}<div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div>${revealLink}</div><button class="toast-close" onclick="dismissToast()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+  document.body.appendChild(toast);
+  toastTimer = setTimeout(dismissToast, 4000);
+}
+function dismissToast() {
+  const toast = document.getElementById('busyToast');
+  if(!toast) return;
+  toast.classList.add('hiding');
+  setTimeout(() => { if(toast.parentNode) toast.remove(); }, 200);
+  if(toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+}
+
+// Check ffmpeg on load
+window.addEventListener('DOMContentLoaded', async () => {
+  const result = await window.api.checkFfmpeg();
+  if(!result.found) document.getElementById('ffmpegWarn').classList.remove('hidden');
+
+  // Load settings
+  const saved = await window.api.getSettings();
+  if(saved) {
+    settings = { keepQueue: saved.keepQueue || false, defaultOutputDir: saved.defaultOutputDir || null };
+    // Apply toggle state
+    document.getElementById('settingKeepQueue').checked = settings.keepQueue;
+    // Apply default output folder
+    if(settings.defaultOutputDir) {
+      const name = settings.defaultOutputDir.split(/[\\/]/).pop() || settings.defaultOutputDir;
+      document.getElementById('settingsFolderLabel').textContent = name;
+      document.getElementById('clearDefaultFolderBtn').style.display = 'flex';
+      // Set session outputDir to default if not already overridden
+      if(!outputDir) {
+        outputDir = settings.defaultOutputDir;
+        updateOutputFolderPill();
+      }
+    }
+    // Restore queue
+    if(settings.keepQueue && saved.queue && saved.queue.length) {
+      for(const item of saved.queue) {
+        const restoredStatus = (item.status === 'converting' || item.status === 'cancelled') ? 'pending' : item.status;
+        files.push({ id: idCounter++, path: item.path, name: item.name, ext: item.ext, cat: item.cat,
+          status: restoredStatus, progress: restoredStatus === 'pending' ? 0 : (item.progress || 0), outPath: item.outPath || null,
+          individualFmt: item.individualFmt || null, fileOutputDir: item.fileOutputDir || null, coverImage: item.coverImage || null });
+      }
+      renderQueue(); updateBadges(); updateStats(); updateConvertBtn();
+    }
+  }
+});
+</script>
+</body>
+</html>
